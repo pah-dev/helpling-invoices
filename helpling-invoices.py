@@ -1,13 +1,20 @@
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
 import env
 import os
 import time
+from selenium.webdriver.chrome.options import Options
 
-driver = webdriver.Chrome("./chromedriver.exe")
+chrome_options = Options()
+chrome_options.add_experimental_option('prefs',  {
+    "download.default_directory": 'D:',
+    "download.prompt_for_download": False,
+    "download.directory_upgrade": True,
+    "plugins.always_open_pdf_externally": True
+}
+)
 
+driver = webdriver.Chrome("./chromedriver.exe", options=chrome_options)
 
 driver.get("https://app.helpling.de/mobile/provider/login")
 
@@ -45,61 +52,76 @@ item = WebDriverWait(driver, 10).until(
     lambda d: d.find_element_by_xpath('//*[@class="transfer-item"]')
 )
 
+link = WebDriverWait(driver, 10).until(
+    lambda d: d.find_element_by_xpath(
+        '//div[@class="transfers-paid__load-more"]/a')
+)
+
+link.click()
+
+time.sleep(5)
 
 file = open("invoices.txt", "w")
 
-transfers = len(driver.find_elements_by_xpath(
-    '//div[@class="transfer-item"]/a'))
+transfers = driver.find_elements_by_xpath(
+    '//div[@class="transfer-item"]/a')
 
-print("TRANSF: " + str(transfers))
-
-file.write("Transfers: " + str(transfers) + os.linesep)
-
-for transNum in range(1, transfers + 1):
-    print(str(transNum))
+for transNum in range(1, len(transfers) + 1):
+    time.sleep(2)
+    transfers = driver.find_elements_by_xpath(
+        '//div[@class="transfer-item"]/a')
+    print("TRANSF: " + str(len(transfers)))
+    lnk_tr = transfers[transNum-1].get_attribute(
+        "href").replace("https://app.helpling.de/", "")
+    print(str(transNum)+" - "+lnk_tr)
     trans = WebDriverWait(driver, 15).until(
         lambda d: d.find_element_by_xpath(
-            '//*[@class="transfer-item"]/a[' + str(transNum) + ']')
-        # EC.presence_of_element_located(
-        #     (By.XPATH,
-        #      '//div[@class="transfer-item"][position()=' + str(transNum) + ']')
-        # )
+            '//a[contains(@href, "' + lnk_tr + '")]')
     )
     print(trans.text)
-    file.write(trans.text + os.linesep)
-    trans.click()
-    # driver.implicitly_wait(10)
+    driver.execute_script("arguments[0].click()", trans)
     time.sleep(2)
-    payments = len(
-        WebDriverWait(driver, 15).until(
-            lambda d: d.find_elements_by_xpath('//a[@class="payment-item"]')
-        )
+    payments = WebDriverWait(driver, 15).until(
+        lambda d: d.find_elements_by_xpath(
+            '//a[@class="payment-item"]')
     )
-    print("PAYS: " + str(payments))
-    # file.write("Payments: " + str(payments) + os.linesep)
-    # for payNum in range(1, payments + 1):
-    #     pay = WebDriverWait(driver, 15).until(
-    #         EC.presence_of_element_located(
-    #             (By.XPATH, '//a[@class="payment-item"][' + str(payNum) + "]")
-    #         )
-    #     )
-    #     # print(pay.text)
-    #     pay.click()
-    #     time.sleep(3)
-    #     invoice = WebDriverWait(driver, 15).until(
-    #         lambda d: d.find_element_by_xpath(
-    #             "//tbody/tr[last()]/td[last()]/a")
-    #     )
-    #     file.write(
-    #         str(payNum)
-    #         + ";"
-    #         + invoice.text
-    #         + ";"
-    #         + invoice.get_attribute("href")
-    #         + os.linesep
-    #     )
-    #     print(str(payNum) + " - " + invoice.text)
-    #     driver.back()
+    for payNum in range(1, len(payments) + 1):
+        time.sleep(2)
+        payments = WebDriverWait(driver, 15).until(
+            lambda d: d.find_elements_by_xpath(
+                '//a[@class="payment-item"]')
+        )
+        print("PAYS: " + str(len(payments)))
+        lnk_py = payments[payNum-1].get_attribute(
+            "href").replace("https://app.helpling.de/", "")
+        print(str(payNum)+" - "+lnk_py)
+        pay = WebDriverWait(driver, 15).until(
+            lambda d: d.find_element_by_xpath(
+                '//a[contains(@href, "' + lnk_py + '")]')
+        )
+        driver.execute_script("arguments[0].click()", pay)
+        time.sleep(2)
+        trs = WebDriverWait(driver, 15).until(
+            lambda d: d.find_elements_by_xpath(
+                "//tbody/tr")
+        )
+        data = driver.find_elements_by_xpath(
+            '//ul/li[@class="options-group__item "]/div')
+        str_data = str(transNum) + ";P;" + str(payNum) + ";"
+        for item in range(1, len(data)):
+            str_data += data[item].text + ";"
+        for row in range(0, len(trs)):
+            tds = driver.find_elements_by_xpath(
+                "//tbody/tr["+str(row+1)+"]/td")
+            for col in range(0, len(tds)):
+                str_data += tds[col].text + ";"
+            lnk_inv = driver.find_element_by_xpath(
+                "//tbody/tr["+str(row+1)+"]/td[last()]/a")
+            str_data += lnk_inv.get_attribute("href") + ";"
+            lnk_inv.click()
+            time.sleep(1)
+        file.write(str_data + os.linesep)
+        driver.back()
     driver.back()
 
 
