@@ -124,11 +124,12 @@ for transNum in range(1, len(transfers) + 1):
             lnk_inv = driver.find_element_by_xpath(
                 "//tbody/tr["+str(row+1)+"]/td[last()]/a")
             str_data += lnk_inv.get_attribute("href") + ";"
-            # lnk_inv.click()
-            # time.sleep(1)
+            lnk_inv.click()
+            time.sleep(1)
         file.write(str_data + "\n")
         driver.back()
     driver.back()
 print("::: PROCESS FINISHED :::")
 
 file.close()
+driver.close()
